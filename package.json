@@ -1,0 +1,10 @@
+{
+  "name": "wolf-xo-bot",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "wolf.js": "latest",
+    "dotenv": "^16.4.5"
+  }
+}
+
