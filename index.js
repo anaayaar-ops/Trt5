@@ -10,7 +10,7 @@ const settings = {
     secret: process.env.U_PASS,
     targetGroupId: 18432094, // رقم القناة (الغرفة)
     commandToSend: "!مد مهام", // الأمر المطلوب إرساله
-    intervalDuration: 60 * 1000 // دقيقة واحدة (60 ثانية)
+    intervalDuration: 61 * 1000 // دقيقة واحدة (60 ثانية)
 };
 
 const service = new WOLF();
