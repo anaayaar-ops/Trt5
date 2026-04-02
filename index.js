@@ -6,82 +6,43 @@ import wolfjs from 'wolf.js';
 const { WOLF } = wolfjs;
 
 const settings = {
-    identity: process.env.U_MAIL, // إيميل الحساب الثاني هنا
-    secret: process.env.U_PASS,   // كلمة مرور الحساب الثاني هنا
-    targetBotId: 82727814,        // بوت الألعاب
-    mainAccountId: 80055399,      // رقم حسابك الأساسي الذي تريده أن يفوز
-    moves: ["1", "3", "7"],       // الأرقام التي سيختارها هذا البوت ليخسر
-    currentIndex: 0,
-    // إعدادات التوقيت (نفس نظام الحساب الأول للتزامن)
-    isRunning: true,
-    workDuration: 52 * 60 * 1000, 
-    restDuration: 8 * 60 * 1000   
+    identity: process.env.U_MAIL,
+    secret: process.env.U_PASS,
+    targetGroupId: 9969, // رقم القناة (الغرفة)
+    commandToSend: "!مد مهام", // الأمر المطلوب إرساله
+    intervalDuration: 60 * 1000 // دقيقة واحدة (60 ثانية)
 };
 
 const service = new WOLF();
 
-// إدارة دورة العمل والراحة
-const manageWorkCycle = () => {
-    if (settings.isRunning) {
-        setTimeout(() => {
-            settings.isRunning = false;
-            console.log("⏸️ فترة راحة للحساب المساعد (8 دقائق)...");
-            manageWorkCycle();
-        }, settings.workDuration);
-    } else {
-        setTimeout(() => {
-            settings.isRunning = true;
-            console.log("🚀 العودة للعمل للحساب المساعد...");
-            manageWorkCycle();
-        }, settings.restDuration);
-    }
+// وظيفة إرسال الرسالة بشكل متكرر
+const startSendingLoop = () => {
+    setInterval(async () => {
+        try {
+            await service.messaging.sendGroupMessage(settings.targetGroupId, settings.commandToSend);
+            console.log(` ✅ تم إرسال الأمر: "${settings.commandToSend}" إلى القناة: ${settings.targetGroupId}`);
+        } catch (err) {
+            console.error(" ❌ فشل في إرسال الرسالة:", err.message);
+        }
+    }, settings.intervalDuration);
 };
 
-service.on('ready', () => {
-    console.log(`✅ بوت المساعدة جاهز: ${service.currentSubscriber.nickname}`);
-    console.log("🛠️ مهمته: قبول تحدي الحساب الأساسي والاختيار من (1-3-7)");
-    manageWorkCycle();
-});
-
-service.on('privateMessage', async (message) => {
-    if (!settings.isRunning) return;
-    if (message.sourceSubscriberId !== settings.targetBotId) return;
-
-    const text = (message.body || "").toLowerCase();
-
-    // 1. قبول التحدي إذا كان مرسلاً من حسابك الأساسي
-    if (text.includes("would like to play") && text.includes(settings.mainAccountId.toString())) {
-        console.log("📥 رصدت طلب تحدي من الحساب الأساسي. جاري القبول...");
-        setTimeout(async () => {
-            await service.messaging.sendPrivateMessage(settings.targetBotId, "Accept");
-        }, 1000);
-        return;
-    }
-
-    // 2. رصد انتهاء اللعبة لإعادة التسلسل (عندما يخسر هذا الحساب)
-    if (text.includes("lost") || text.includes("won") || text.includes("draw") || text.includes("انتهت")) {
-        console.log("🏁 انتهت الجولة. بانتظار التحدي القادم...");
-        settings.currentIndex = 0;
-        return;
-    }
-
-    // 3. رصد الدور (Your Turn) للعب الحركات التي تضمن الخسارة
-    const isMyTurn = text.includes("your turn") || (text.includes("دورك") && !text.includes("opponent"));
-
-    if (isMyTurn) {
-        const nextMove = settings.moves[settings.currentIndex];
-
-        setTimeout(async () => {
-            if (settings.isRunning) {
-                try {
-                    await service.messaging.sendPrivateMessage(settings.targetBotId, nextMove);
-                    console.log(`🕹️ لعبت الرقم (للمساعدة): ${nextMove}`);
-                    settings.currentIndex = (settings.currentIndex + 1) % settings.moves.length;
-                } catch (err) {
-                    console.error("❌ فشل إرسال الحركة:", err.message);
-                }
-            }
-        }, 1500);
+service.on('ready', async () => {
+    console.log(`✅ البوت متصل باسم: ${service.currentSubscriber.nickname}`);
+    
+    try {
+        // محاولة الانضمام للقناة أولاً للتأكد من القدرة على الإرسال
+        await service.group.joinById(settings.targetGroupId);
+        console.log(` 🏠 تم الدخول إلى القناة رقم: ${settings.targetGroupId}`);
+        
+        // إرسال أول رسالة فور الدخول
+        await service.messaging.sendGroupMessage(settings.targetGroupId, settings.commandToSend);
+        
+        // بدء الحلقة التكرارية (كل دقيقة)
+        startSendingLoop();
+        
+    } catch (err) {
+        console.error(" ❌ حدث خطأ أثناء الانضمام أو الإرسال الأول:", err.message);
     }
 });
 
