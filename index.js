@@ -8,7 +8,7 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    targetGroupId: 224 , // رقم القناة (الغرفة)
+    targetGroupId: 18432094 , // رقم القناة (الغرفة)
     commandToSend: "!مد مهام", // الأمر المطلوب إرساله
     intervalDuration: 61 * 1000 // دقيقة واحدة (60 ثاني
 };
