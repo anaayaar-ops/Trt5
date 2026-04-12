@@ -104,7 +104,7 @@ service.on('ready', async () => {
         await service.group.joinById(settings.targetGroupId);
         setInterval(() => {
             sendAutoCommands("!مد مهام");
-            setTimeout(() => sendAutoCommands("!مد هدية 80055399 كل "), 3000);
+            setTimeout(() => sendAutoCommands("!مد تحالف ايداع كل "), 3000);
         }, settings.minuteInterval);
         setInterval(() => sendAutoCommands("!مد صندوق فتح"), settings.boxInterval);
     } catch (e) {}
