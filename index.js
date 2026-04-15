@@ -7,7 +7,7 @@ const settings = {
     secret: process.env.U_PASS || 'your_password',
     targetGroupId: 330865 , 
     minuteInterval: 63 * 1000,
-    boxInterval: 3 * 60 * 1000
+    boxInterval: 827 * 60 * 1000
 };
 
 const MY_INFO = {
@@ -106,7 +106,7 @@ service.on('ready', async () => {
             sendAutoCommands("!مد مهام");
             setTimeout(() => sendAutoCommands("!مد تحالف ايداع كل "), 3000);
         }, settings.minuteInterval);
-        setInterval(() => sendAutoCommands("!مد صندوق فتح"), settings.boxInterval);
+        setInterval(() => sendAutoCommands("!مد حالة"), settings.boxInterval);
     } catch (e) {}
 });
 
