@@ -25,6 +25,20 @@ const wordToNum = {'صفر':'0','واحد':'1','اثنان':'2','ثلاثة':'3'
 
 const service = new WOLF();
 
+// دالة موحدة لإرسال الأوامر التلقائية مع فحص حالة التوقف
+const sendRoutineCommands = async () => {
+    if (isPaused) return;
+    try {
+        await service.messaging.sendGroupMessage(settings.taskGroupId, "!مد مهام");
+        // تأخير بسيط لإرسال أمر الإيداع بعد المهام
+        setTimeout(async () => {
+            if (!isPaused) {
+                await service.messaging.sendGroupMessage(settings.depositGroupId, "!مد تحالف ايداع كل");
+            }
+        }, 3000);
+    } catch (e) {}
+};
+
 service.on('groupMessage', async (message) => {
     try {
         const isTargetGroup = message.targetGroupId === settings.taskGroupId || message.targetGroupId === settings.depositGroupId;
@@ -33,96 +47,98 @@ service.on('groupMessage', async (message) => {
         const content = message.body;
         const isMe = message.subscriberId === service.currentSubscriber.id;
 
-        // --- 1. رصد رسالة الإيقاف الإنتاجي (تعديل النمط لضمان الاستجابة) ---
+        // --- 1. رصد التوقف الإنتاجي ---
         if (content.includes("تم إيقاف الأوامر الإنتاجية مؤقتًا") && content.includes(MY_INFO.keyword)) {
-            // البحث عن أي أرقام موجودة في الرسالة لاستخدامها كدقائق
             const match = content.match(/\d+/); 
             if (match) {
                 const minutes = parseInt(match[0]);
                 isPaused = true;
-                console.log(`⚠️ توقف إنتاجي مؤقت لمدة ${minutes} دقيقة.`);
-
-                setTimeout(() => {
-                    isPaused = false;
-                    console.log("✅ انتهت مدة التوقف.");
-                }, minutes * 60 * 1000);
+                console.log(`⚠️ توقف إنتاجي لمدة ${minutes} دقيقة.`);
+                setTimeout(() => { isPaused = false; }, minutes * 60 * 1000);
             }
             return;
         }
 
-        if (isPaused && !content.includes("لأنك لاعب مجتهد جدًا اليوم") && !content.includes("سؤال التحقق")) return;
-
-        // --- 2. إيقاف الصناديق عند "لا تملك مفاتيح!" ---
+        // --- 2. رصد نفاذ المفاتيح ---
         if (content.includes("لا تملك مفاتيح!") && message.targetGroupId === settings.taskGroupId) {
-            const currentTime = Date.now();
-            if (currentTime - lastBoxCommandTime < 10000) { // التحقق في غضون 10 ثوانٍ
+            if (Date.now() - lastBoxCommandTime < 10000) {
                 canOpenBoxes = false;
-                console.log("🚫 تم إيقاف أمر الصناديق.");
+                console.log("🚫 توقف أمر الصناديق لنفاذ المفاتيح.");
             }
             return;
         }
 
-        // --- 3. طلب الفحص التلقائي ---
-        if (content.includes("يوجد سؤال تحقق نشط") && content.includes("!مد فحص")) {
-            await service.messaging.sendGroupMessage(message.targetGroupId, "!مد فحص");
-            return;
-        }
+        // --- 3. الأولوية القصوى: حل الأسئلة والفخاخ ---
+        const isTrap = content.includes("لأنك لاعب مجتهد جدًا اليوم") || content.includes("سؤال التحقق الخاص بك هو");
+        const isSafetyAlert = content.includes("يوجد سؤال تحقق نشط");
 
-        // --- 4. حل الفخاخ (رد ثابت 5 ثوانٍ) ---
-        if (isMe) return; 
-        if (!content.includes("لأنك لاعب مجتهد جدًا اليوم") && !content.includes("سؤال التحقق")) return;
-        if (!content.includes(MY_INFO.keyword) && !content.includes("سؤال التحقق")) return;
-
-        let answer = null;
-        if (content.includes('عضوية')) answer = MY_INFO.ownerId;
-        else if (content.includes('بالكلمات')) {
-            const match = content.match(/\d+/);
-            if (match && numToWord[match[0]]) answer = numToWord[match[0]];
-        }
-        else if (content.includes('بالأرقام')) {
-            for (let word in wordToNum) { if (content.includes(word)) { answer = wordToNum[word]; break; } }
-        }
-        else if (content.includes('اكتب') && (content.includes('كلمة') || content.includes('كما هي'))) {
-            const match = content.match(/:\s*(\S+)/) || content.match(/هي\s+(\S+)/);
-            if (match) answer = match[1];
-        }
-        else if (content.includes('صح أم خطأ') || content.includes('التحالف')) answer = "صح";
-        else if (content.includes('أيهما')) {
-            const nums = content.match(/\d+/g);
-            if (nums && nums.length >= 2) {
-                const n1 = parseInt(nums[0]), n2 = parseInt(nums[1]);
-                answer = (content.includes('أكبر')) ? Math.max(n1, n2) : Math.min(n1, n2);
+        if ((isTrap && content.includes(MY_INFO.keyword)) || isSafetyAlert || (isTrap && content.includes("سؤال التحقق"))) {
+            
+            // طلب الفحص فوراً إذا كان تنبيهاً
+            if (isSafetyAlert) {
+                await service.messaging.sendGroupMessage(message.targetGroupId, "!مد فحص");
+                return;
             }
-        }
-        else if (content.includes('ناتج')) {
-            const nums = content.match(/\d+/g);
-            if (nums && nums.length >= 2) {
-                const n1 = parseInt(nums[0]), n2 = parseInt(nums[1]);
-                answer = (content.includes('-')) ? n1 - n2 : n1 + n2;
-            }
-        }
 
-        if (answer !== null) {
-            setTimeout(async () => {
-                await service.messaging.sendGroupMessage(message.targetGroupId, `!${answer}`);
-            }, 5000); // الرد بعد 5 ثوانٍ ثابتة
+            console.log(`🎯 تم رصد سؤال.. الأولوية للحل الآن في الروم ${message.targetGroupId}`);
+            let answer = null;
+
+            // منطق استخراج الإجابة
+            if (content.includes('عضوية')) answer = MY_INFO.ownerId;
+            else if (content.includes('بالكلمات')) {
+                const match = content.match(/\d+/);
+                if (match && numToWord[match[0]]) answer = numToWord[match[0]];
+            }
+            else if (content.includes('بالأرقام')) {
+                for (let word in wordToNum) { if (content.includes(word)) { answer = wordToNum[word]; break; } }
+            }
+            else if (content.includes('اكتب') && (content.includes('كلمة') || content.includes('كما هي'))) {
+                const match = content.match(/:\s*(\S+)/) || content.match(/هي\s+(\S+)/);
+                if (match) answer = match[1];
+            }
+            else if (content.includes('صح أم خطأ') || content.includes('التحالف')) answer = "صح";
+            else if (content.includes('أيهما')) {
+                const nums = content.match(/\d+/g);
+                if (nums && nums.length >= 2) {
+                    const n1 = parseInt(nums[0]), n2 = parseInt(nums[1]);
+                    answer = (content.includes('أكبر')) ? Math.max(n1, n2) : Math.min(n1, n2);
+                }
+            }
+            else if (content.includes('ناتج')) {
+                const nums = content.match(/\d+/g);
+                if (nums && nums.length >= 2) {
+                    const n1 = parseInt(nums[0]), n2 = parseInt(nums[1]);
+                    answer = (content.includes('-')) ? n1 - n2 : n1 + n2;
+                }
+            }
+
+            if (answer !== null) {
+                // الرد بعد 5 ثوانٍ ثابتة
+                setTimeout(async () => {
+                    await service.messaging.sendGroupMessage(message.targetGroupId, `!${answer}`);
+                    console.log(`✅ تم الحل. العودة للأوامر الروتينية...`);
+                    
+                    // العودة لتنفيذ المهام فوراً بعد الحل لضمان عدم ضياع الوقت
+                    setTimeout(() => sendRoutineCommands(), 2000);
+                }, 5000);
+            }
         }
     } catch (err) {}
 });
 
 service.on('ready', async () => {
-    console.log(`🚀 البوت يعمل: نظام التوقف الإنتاجي وإيقاف المفاتيح مفعّل.`);
+    console.log(`🚀 البوت يعمل بنظام الأولوية للحل ثم الأوامر.`);
     try {
         await service.group.joinById(settings.taskGroupId);
         await service.group.joinById(settings.depositGroupId);
         
-        setInterval(async () => {
-            if (!isPaused) {
-                await service.messaging.sendGroupMessage(settings.taskGroupId, "!مد مهام");
-                setTimeout(() => service.messaging.sendGroupMessage(settings.depositGroupId, "!مد تحالف ايداع كل"), 3000);
-            }
-        }, settings.minuteInterval);
+        // تشغيل الدورة الأولى
+        sendRoutineCommands();
 
+        // جدولة الأوامر التلقائية
+        setInterval(() => sendRoutineCommands(), settings.minuteInterval);
+
+        // جدولة فتح الصناديق
         setInterval(() => {
             if (canOpenBoxes && !isPaused) {
                 lastBoxCommandTime = Date.now();
