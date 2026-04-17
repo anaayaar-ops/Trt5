@@ -16,10 +16,9 @@ const MY_INFO = {
     ownerId: "2481425"  
 };
 
-// متغيرات التحكم
-let canOpenBoxes = true; // مفعّل افتراضياً
+let canOpenBoxes = true; 
 let isPaused = false; 
-let lastBoxCommandTime = 0; // لتعقب وقت آخر طلب فتح أرسلته أنت
+let lastBoxCommandTime = 0; 
 
 const numToWord = {'0':'صفر','1':'واحد','2':'اثنان','3':'ثلاثة','4':'أربعة','5':'خمسة','6':'ستة','7':'سبعة','8':'ثمانية','9':'تسعة','10':'عشرة'};
 const wordToNum = {'صفر':'0','واحد':'1','اثنان':'2','ثلاثة':'3','أربعة':'4','خمسة':'5','ستة':'6','سبعة':'7','ثمانية':'8','تسعة':'9','عشرة':'10'};
@@ -34,38 +33,42 @@ service.on('groupMessage', async (message) => {
         const content = message.body;
         const isMe = message.subscriberId === service.currentSubscriber.id;
 
-        // --- 1. مراقبة نفاذ المفاتيح (إيقاف الأمر إذا ظهر الرد بعد طلبك مباشرة) ---
-        if (content.includes("لا تملك مفاتيح!") && message.targetGroupId === settings.taskGroupId) {
-            const currentTime = Date.now();
-            // إذا ظهرت الرسالة خلال 10 ثوانٍ من آخر طلب فتح أرسله البوت
-            if (currentTime - lastBoxCommandTime < 10000) {
-                canOpenBoxes = false;
-                console.log("🚫 تم رصد نفاذ المفاتيح: تم إيقاف أمر فتح الصناديق نهائياً.");
-            }
-            return;
-        }
-
-        // --- 2. ميزة التوقف المؤقت (الإيقاف الإنتاجي) ---
+        // --- 1. رصد رسالة الإيقاف الإنتاجي (تعديل النمط لضمان الاستجابة) ---
         if (content.includes("تم إيقاف الأوامر الإنتاجية مؤقتًا") && content.includes(MY_INFO.keyword)) {
-            const match = content.match(/مدة\s*(\d+)/);
+            // البحث عن أي أرقام موجودة في الرسالة لاستخدامها كدقائق
+            const match = content.match(/\d+/); 
             if (match) {
-                const minutes = parseInt(match[1]);
+                const minutes = parseInt(match[0]);
                 isPaused = true;
-                console.log(`⚠️ توقف إنتاجي لمدة ${minutes} دقيقة.`);
-                setTimeout(() => { isPaused = false; console.log("✅ انتهت مدة التوقف."); }, minutes * 60 * 1000);
+                console.log(`⚠️ توقف إنتاجي مؤقت لمدة ${minutes} دقيقة.`);
+
+                setTimeout(() => {
+                    isPaused = false;
+                    console.log("✅ انتهت مدة التوقف.");
+                }, minutes * 60 * 1000);
             }
             return;
         }
 
         if (isPaused && !content.includes("لأنك لاعب مجتهد جدًا اليوم") && !content.includes("سؤال التحقق")) return;
 
-        // --- 3. التعامل مع سؤال التحقق (!مد فحص) ---
+        // --- 2. إيقاف الصناديق عند "لا تملك مفاتيح!" ---
+        if (content.includes("لا تملك مفاتيح!") && message.targetGroupId === settings.taskGroupId) {
+            const currentTime = Date.now();
+            if (currentTime - lastBoxCommandTime < 10000) { // التحقق في غضون 10 ثوانٍ
+                canOpenBoxes = false;
+                console.log("🚫 تم إيقاف أمر الصناديق.");
+            }
+            return;
+        }
+
+        // --- 3. طلب الفحص التلقائي ---
         if (content.includes("يوجد سؤال تحقق نشط") && content.includes("!مد فحص")) {
             await service.messaging.sendGroupMessage(message.targetGroupId, "!مد فحص");
             return;
         }
 
-        // --- 4. محرك حل الفخاخ (فزآعنا) ---
+        // --- 4. حل الفخاخ (رد ثابت 5 ثوانٍ) ---
         if (isMe) return; 
         if (!content.includes("لأنك لاعب مجتهد جدًا اليوم") && !content.includes("سؤال التحقق")) return;
         if (!content.includes(MY_INFO.keyword) && !content.includes("سؤال التحقق")) return;
@@ -102,13 +105,13 @@ service.on('groupMessage', async (message) => {
         if (answer !== null) {
             setTimeout(async () => {
                 await service.messaging.sendGroupMessage(message.targetGroupId, `!${answer}`);
-            }, 5000); 
+            }, 5000); // الرد بعد 5 ثوانٍ ثابتة
         }
     } catch (err) {}
 });
 
 service.on('ready', async () => {
-    console.log(`🚀 البوت جاهز: نظام إيقاف الصناديق عند نفاذ المفاتيح مفعّل.`);
+    console.log(`🚀 البوت يعمل: نظام التوقف الإنتاجي وإيقاف المفاتيح مفعّل.`);
     try {
         await service.group.joinById(settings.taskGroupId);
         await service.group.joinById(settings.depositGroupId);
@@ -122,7 +125,7 @@ service.on('ready', async () => {
 
         setInterval(() => {
             if (canOpenBoxes && !isPaused) {
-                lastBoxCommandTime = Date.now(); // تسجيل وقت الإرسال
+                lastBoxCommandTime = Date.now();
                 service.messaging.sendGroupMessage(settings.taskGroupId, "!مد صندوق فتح");
             }
         }, settings.boxInterval);
