@@ -73,7 +73,7 @@ service.on('message', async (message) => {
     try {
         if (!message.isGroup && (message.sourceSubscriberId === MY_INFO.monitorId || message.authorId === MY_INFO.monitorId)) {
             const content = message.body || "";
-            if (content.includes("هجوم ناجح على")) {
+            if (content.includes("هجوم ناجح من")) {
                 await runEmergencyProtocol();
             }
         }
