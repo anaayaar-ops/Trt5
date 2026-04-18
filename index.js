@@ -5,8 +5,8 @@ const { WOLF } = wolfjs;
 const settings = {
     identity: process.env.U_MAIL,
     secret: process.env.U_PASS,
-    taskGroupId: 9969,
-    depositGroupId: 9969,
+    taskGroupId: 224,
+    depositGroupId: 224,
     minuteInterval: 303 * 1000,
     boxInterval: 3 * 60 * 1000
 };
@@ -14,7 +14,7 @@ const settings = {
 const MY_INFO = {
     keyword: "فزآعنا",
     ownerId: "2481425",
-    monitorId: 80055399 
+    monitorId: 76023180 
 };
 
 let canOpenBoxes = true;
