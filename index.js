@@ -10,8 +10,13 @@ const client = new WOLF();
 const TARGET_USER_ID = 76023604; 
 const CHANNEL_TASKS = 17614046;       // قناة المهام
 const CHANNEL_ALLIANCE = 224;    // قناة التحالف
-// أضف هنا جميع الأسماء التي تريدها
-const ALLOWED_PLAYERS = ['cat', 'dog', 'player3', 'أوكسجينه']; 
+// تم إضافة الأسماء المطلوبة هنا
+const ALLOWED_PLAYERS = ['أوكسجينه', 'أوكسجيته', 'أوكسجيئه']; 
+
+// وظيفة تنظيف الاسم (تحذف النقاط والرموز والمسافات الزائدة)
+function normalizeName(name) {
+    return name.replace(/[.\-_\s‎‏]/g, '').toLowerCase();
+}
 
 client.on('ready', async () => {
     console.log(`🚀 البوت متصل! يراقب القناتين: ${CHANNEL_TASKS} و ${CHANNEL_ALLIANCE}`);
@@ -81,18 +86,20 @@ client.on('groupMessage', async (message) => {
 
         if (!(await isCaptchaByColor(buffer))) return;
 
-        const name = await extractPlayerName(buffer);
-        console.log(`👤 اللاعب المكتشف في قناة ${message.targetGroupId}: ${name}`);
+        const rawName = await extractPlayerName(buffer);
+        const normalizedRawName = normalizeName(rawName);
+        
+        console.log(`👤 اللاعب المكتشف في قناة ${message.targetGroupId}: ${rawName}`);
 
-        // التحقق مما إذا كان اسم اللاعب المكتشف موجوداً في قائمة ALLOWED_PLAYERS
-        const isAuthorized = ALLOWED_PLAYERS.some(p => name.toLowerCase().includes(p.toLowerCase()));
+        // التحقق مما إذا كان الاسم المكتشف (بعد التنظيف) يحتوي على أي من الأسماء المسموحة
+        const isAuthorized = ALLOWED_PLAYERS.some(p => normalizedRawName.includes(normalizeName(p)));
 
         if (!isAuthorized) {
-            console.log(`⏭️ تجاهل: الاسم "${name}" غير موجود في القائمة المسموحة.`);
+            console.log(`⏭️ تجاهل: الاسم "${rawName}" غير مطابق للقائمة.`);
             return;
         }
 
-        console.log(`✅ الاسم "${name}" مطابق، جاري حل الكابتشا...`);
+        console.log(`✅ الاسم "${rawName}" مطابق، جاري حل الكابتشا...`);
         const code = await solveCaptcha(buffer);
         
         if (code) {
