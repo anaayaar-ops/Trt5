@@ -10,7 +10,6 @@ const client = new WOLF();
 const TARGET_USER_ID = 76023604; 
 const CHANNEL_TASKS = 224;       // قناة المهام
 const CHANNEL_ALLIANCE = 224;    // قناة التحالف
-// تم إضافة الأسماء المطلوبة هنا
 const ALLOWED_PLAYERS = ['أوكسجينه', 'أوكسجيته', 'أوكسجيئه']; 
 
 // وظيفة تنظيف الاسم (تحذف النقاط والرموز والمسافات الزائدة)
@@ -23,13 +22,31 @@ client.on('ready', async () => {
     await client.group.joinById(CHANNEL_TASKS);
     await client.group.joinById(CHANNEL_ALLIANCE);
     startAutomation();
-    // رسالة دورية كل 5 دقائق
-
 });
 
 // --- الأتمتة ---
 async function startAutomation() {
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // 1. مهمة الصندوق فتح كل 5 دقائق
+    setInterval(async () => {
+        try {
+            await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد صندوق فتح');
+            console.log(`✅ تم إرسال "!مد صندوق فتح" تلقائياً`);
+        } catch (err) {
+            console.error("❌ خطأ في إرسال صندوق الفتح:", err.message);
+        }
+    }, 15 * 60 * 1000);
+
+    // 2. مهمة صندوق ضمان وقت كل ساعة
+    setInterval(async () => {
+        try {
+            await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد صندوق ضمان وقت');
+            console.log(`✅ تم إرسال "!مد صندوق ضمان وقت" تلقائياً`);
+        } catch (err) {
+            console.error("❌ خطأ في إرسال صندوق الضمان:", err.message);
+        }
+    }, 60 * 60 * 1000);
 
     while (true) {
         try {
@@ -49,25 +66,7 @@ async function startAutomation() {
             await sleep(5000);
         }
     }
-    setInterval(async () => {
-    try {
-        await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد صندوق فتح');
-        console.log("✅ تم إرسال '!مد صندوق فتح' دورياً للقناة");
-    } catch (err) {
-        console.error("❌ خطأ في الرسالة الدورية:", err.message);
-    }
-}, 300000); // 300,000 مللي ثانية = 5 دقائق
-// رسالة دورية كل ساعة
-setInterval(async () => {
-    try {
-        await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد صندوق ضمان وقت');
-        console.log("✅ تم إرسال '!مد صندوق ضمان وقت' دورياً للقناة");
-    } catch (err) {
-        console.error("❌ خطأ في الرسالة الدورية (الساعة):", err.message);
-    }
-}, 3600000); // 3,600,000 
 }
-
 
 // --- معالجة الصور ---
 async function isCaptchaByColor(buffer) {
@@ -111,7 +110,6 @@ client.on('groupMessage', async (message) => {
         
         console.log(`👤 اللاعب المكتشف في قناة ${message.targetGroupId}: ${rawName}`);
 
-        // التحقق مما إذا كان الاسم المكتشف (بعد التنظيف) يحتوي على أي من الأسماء المسموحة
         const isAuthorized = ALLOWED_PLAYERS.some(p => normalizedRawName.includes(normalizeName(p)));
 
         if (!isAuthorized) {
