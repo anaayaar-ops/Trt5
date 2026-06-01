@@ -31,12 +31,12 @@ async function startAutomation() {
     // 1. مهمة الصندوق فتح كل 5 دقائق
     setInterval(async () => {
         try {
-            await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد صندوق فتح');
+            await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد صندوق فتح ذهبي ');
             console.log(`✅ تم إرسال "!مد صندوق فتح" تلقائياً`);
         } catch (err) {
             console.error("❌ خطأ في إرسال صندوق الفتح:", err.message);
         }
-    }, 15 * 60 * 1000);
+    }, 3 * 60 * 1000);
 
     // 2. مهمة صندوق ضمان وقت كل ساعة
     setInterval(async () => {
