@@ -9,7 +9,7 @@ const client = new WOLF();
 
 // --- الإعدادات ---
 const TARGET_USER_ID = 80055399;
-const CHANNEL_ID = 81889058; 
+const CHANNEL_ID = 81889058;
 const ALLOWED_PLAYERS = ['أوكسجينه', 'أوكسجيته', 'أوكسجيئه'];
 
 // --- المعالجة الرئيسية ---
@@ -88,66 +88,92 @@ async function solveCaptcha(buffer) {
     return text.replace(/[^a-zA-Z0-9\u0621-\u064A]/g, '').trim();
 }
 
+// دالة تنفيذ سلسلة المهام
+const runSequence = async (timerValue) => {
+    try {
+        await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد مهام');
+        console.log("🛠 أرسلت: !مد مهام");
+
+        // انتظار دقيقتين
+        await new Promise(resolve => setTimeout(resolve, 2 * 60 * 1000));
+
+        await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد تحالف ايداع كل');
+        console.log("💰 أرسلت: !مد تحالف ايداع كل");
+
+        // تحديد قيمة x
+        const x = (timerValue === 0) ? 306000 : 64000;
+        console.log(`⏳ انتظار لمدة ${x/1000} ثانية قبل إعادة الفحص...`);
+
+        // انتظار x
+        await new Promise(resolve => setTimeout(resolve, x));
+
+        // إعادة الدورة
+        sendBoxCommand();
+    } catch (err) {
+        console.error("⚠️ خطأ في سلسلة المهام:", err.message);
+    }
+};
+
+const sendBoxCommand = async () => {
+    try {
+        await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق');
+        console.log("📥 تم إرسال أمر !مد صندوق");
+
+        const responseHandler = async (message) => {
+            if (message.targetGroupId == CHANNEL_ID && message.body.startsWith('/me 📦 حالة الصناديق')) {
+                
+                const matchA = message.body.match(/حالة الضمان:\s*(.*)/);
+                const matchB = message.body.match(/الجهاز الزمني:\s*(.*)/);
+
+                const a = matchA ? matchA[1].trim() : "";
+                const b = matchB ? matchB[1].trim() : "";
+
+                let timer = 0;
+
+                // البحث في b
+                if (b.includes("غير نشط")) {
+                    // البحث في a
+                    if (!a.includes("غير جاهز")) {
+                        await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق ضمان وقت');
+                        timer = 3 * 60 * 60; // 3 ساعات
+                    } else {
+                        timer = 0;
+                    }
+                } else {
+                    const h = b.match(/(\d+)س/);
+                    const m = b.match(/(\d+)د/);
+                    const s = b.match(/(\d+)ث/);
+
+                    if (h) timer += parseInt(h[1]) * 3600;
+                    if (m) timer += parseInt(m[1]) * 60;
+                    if (s) timer += parseInt(s[1]);
+                }
+
+                console.log("قيمة a:", a);
+                console.log("قيمة b:", b);
+                console.log("قيمة timer (بالثواني):", timer);
+
+                client.removeListener('groupMessage', responseHandler);
+                
+                // بدء سلسلة المهام بعد الحصول على التايمر
+                runSequence(timer);
+            }
+        };
+
+        client.on('groupMessage', responseHandler);
+
+        setTimeout(() => {
+            client.removeListener('groupMessage', responseHandler);
+        }, 5000);
+
+    } catch (err) {
+        console.error("⚠️ خطأ في تنفيذ أمر مد الصندوق:", err.message);
+    }
+};
+
 client.on('ready', () => {
     console.log("🚀 البوت يعمل الآن (مراقب للكابتشا فقط)");
-
-    const sendBoxCommand = async () => {
-        try {
-            await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق');
-            console.log("📥 تم إرسال أمر !مد صندوق");
-
-            const responseHandler = async (message) => {
-                if (message.targetGroupId == CHANNEL_ID && message.body.startsWith('/me 📦 حالة الصناديق')) {
-                    
-                    const matchA = message.body.match(/حالة الضمان:\s*(.*)/);
-                    const matchB = message.body.match(/الجهاز الزمني:\s*(.*)/);
-
-                    const a = matchA ? matchA[1].trim() : "";
-                    const b = matchB ? matchB[1].trim() : "";
-
-                    let timer = 0;
-
-                    // البحث في المتغير b
-                    if (b.includes("غير نشط")) {
-                        // البحث في المتغير a فقط
-                        if (!a.includes("غير جاهز")) {
-                            await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق ضمان وقت');
-                            timer = 3 * 60 * 60; // 3 ساعات بالثواني
-                        } else {
-                            timer = 0;
-                        }
-                    } else {
-                        // استخراج الوقت من b وحسابه بالثواني
-                        const h = b.match(/(\d+)س/);
-                        const m = b.match(/(\d+)د/);
-                        const s = b.match(/(\d+)ث/);
-
-                        if (h) timer += parseInt(h[1]) * 3600;
-                        if (m) timer += parseInt(m[1]) * 60;
-                        if (s) timer += parseInt(s[1]);
-                    }
-
-                    console.log("قيمة a:", a);
-                    console.log("قيمة b:", b);
-                    console.log("قيمة timer (بالثواني):", timer);
-
-                    client.removeListener('groupMessage', responseHandler);
-                }
-            };
-
-            client.on('groupMessage', responseHandler);
-
-            setTimeout(() => {
-                client.removeListener('groupMessage', responseHandler);
-            }, 5000);
-
-        } catch (err) {
-            console.error("⚠️ خطأ في تنفيذ أمر مد الصندوق:", err.message);
-        }
-    };
-
     sendBoxCommand();
-    setInterval(sendBoxCommand, 30 * 60 * 1000);
 });
 
 client.login(process.env.U_MAIL, process.env.U_PASS);
