@@ -8,7 +8,7 @@ const { WOLF } = wolfjs;
 const client = new WOLF();
 
 // --- الإعدادات ---
-const TARGET_USER_ID = 80055399 ;
+const TARGET_USER_ID = 80055399;
 const CHANNEL_ID = 81889058; // تأكد من وضع رقم القناة هنا
 const ALLOWED_PLAYERS = ['أوكسجينه', 'أوكسجيته', 'أوكسجيئه'];
 
@@ -97,8 +97,8 @@ async function solveCaptcha(buffer) {
 client.on('ready', () => {
     console.log("🚀 البوت يعمل الآن (مراقب للكابتشا فقط)");
 
-    // تنفيذ المهمة كل 30 دقيقة
-    setInterval(async () => {
+    // دالة إرسال الأمر
+    const sendBoxCommand = async () => {
         try {
             await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق');
             console.log("📥 تم إرسال أمر !مد صندوق");
@@ -107,7 +107,6 @@ client.on('ready', () => {
             const responseHandler = (message) => {
                 if (message.targetGroupId == CHANNEL_ID && message.body.startsWith('/me 📦 حالة الصناديق')) {
                     console.log("✅ تم استلام حالة الصناديق بنجاح.");
-                    // هنا يمكنك معالجة النص إذا أردت
                     client.removeListener('groupMessage', responseHandler);
                 }
             };
@@ -122,7 +121,14 @@ client.on('ready', () => {
         } catch (err) {
             console.error("⚠️ خطأ في تنفيذ أمر مد الصندوق:", err.message);
         }
-    }, 30 * 60 * 1000); // 30 دقيقة بالملي ثانية
+    };
+
+    // تنفيذ الأمر فور تشغيل البوت
+    sendBoxCommand();
+
+    // تكرار المهمة كل 30 دقيقة
+    setInterval(sendBoxCommand, 30 * 60 * 1000);
 });
 
 client.login(process.env.U_MAIL, process.env.U_PASS);
+
