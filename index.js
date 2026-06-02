@@ -38,6 +38,7 @@ async function handleBoxFarming(gold, silver, bronze, currentPoints, status) {
     }
 
     if (queue.length > 0) {
+        console.log(`[LOG] 🚜 بدء فتح ${queue.length} صندوق.`);
         for (const cmd of queue) {
             await client.messaging.sendGroupMessage(CHANNEL_TASKS, cmd);
             await new Promise(r => setTimeout(r, 10000));
@@ -46,8 +47,9 @@ async function handleBoxFarming(gold, silver, bronze, currentPoints, status) {
     isFarming = false;
 }
 
-// --- إدارة المهام ---
+// --- دالة المهام ---
 async function performTasks() {
+    console.log(`[LOG] 🚀 تنفيذ دورة المهام.`);
     try {
         await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد مهام');
         await new Promise(r => setTimeout(r, 2000));
@@ -55,16 +57,16 @@ async function performTasks() {
     } catch (e) { console.error(`[ERROR] ${e.message}`); }
 }
 
-// --- المؤقت (مُعدل لمنع التكرار غير الضروري) ---
+// --- إدارة المؤقت ---
 function manageTimer() {
     if (b) clearInterval(b);
     let intervalMs = isSystemActive ? 64000 : 306000;
-    console.log(`[LOG] ⚙️ المؤقت مضبوط على ${isSystemActive ? "64" : "306"} ثانية.`);
+    console.log(`[LOG] ⚙️ تم ضبط المؤقت على ${isSystemActive ? "64" : "306"} ثانية.`);
     performTasks(); 
     b = setInterval(performTasks, intervalMs);
 }
 
-// --- دوال الكابتشا (تم تحديثها لتتوافق مع Tesseract v4+) ---
+// --- دوال الكابتشا ---
 async function isCaptchaByColor(buffer) {
     const { data, info } = await sharp(buffer).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
     let redPixels = 0;
@@ -103,7 +105,6 @@ async function solveCaptcha(buffer) {
     const processedBuffer = await sharp(buffer)
         .extract({ left: minX + margin, top: minY + margin, width: (maxX - minX) - (margin * 2), height: (maxY - minY) - (margin * 2) })
         .greyscale().normalize().linear(1.5, -0.2).sharpen().toBuffer();
-    
     const worker = await createWorker('eng+ara');
     await worker.setParameters({ tessedit_pageseg_mode: '7' });
     const { data: { text } } = await worker.recognize(processedBuffer);
@@ -140,8 +141,8 @@ client.on('groupMessage', async (message) => {
     const pMatch = body.match(/نقاط الضمان:\s*(\d+)/);
     const statusMatch = body.match(/حالة الضمان[:\s]+(.*)/);
     
-    // الحل الجذري للزمن: [^\r\n]+ تمنع التقاط أي شيء خارج سطر "الجهاز الزمني"
-    const timeMatch = body.match(/الجهاز الزمني[:\s]+([^\r\n]+)/);
+    // الحل الجذري للزمن: توقف عند نهاية السطر [^\r\n]+
+    const timeMatch = body.match(/الجهاز الزمني[:\s]+([^\r\n]+)/u);
 
     // معالجة الصناديق
     if (gMatch && pMatch && statusMatch) {
@@ -154,14 +155,16 @@ client.on('groupMessage', async (message) => {
         );
     }
 
-    // معالجة الزمن (بشرط عدم التكرار)
+    // معالجة حالة الجهاز الزمني
     if (timeMatch) {
         const timeStatus = timeMatch[1].trim(); 
         const isReady = statusMatch ? statusMatch[1].includes('جاهز') : false;
         const oldState = isSystemActive;
 
+        // المنطق الدقيق للحالة
         if (timeStatus.includes('غير نشط')) {
             isSystemActive = false;
+            // فقط إذا كان جاهزاً والوضع خامل، اطلب الصندوق
             if (isReady) {
                 await client.messaging.sendGroupMessage(CHANNEL_TASKS, '!مد صندوق ضمان وقت');
                 isSystemActive = true; 
@@ -170,7 +173,7 @@ client.on('groupMessage', async (message) => {
             isSystemActive = true; 
         }
 
-        // تحديث المؤقت فقط إذا تغيرت الحالة فعلياً
+        // لا تقم بإعادة ضبط المؤقت إلا إذا تغيرت الحالة فعلياً
         if (oldState !== isSystemActive) {
             manageTimer();
         }
