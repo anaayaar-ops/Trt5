@@ -9,12 +9,11 @@ const client = new WOLF();
 
 // --- الإعدادات ---
 const TARGET_USER_ID = 80055399;
-const CHANNEL_ID = 81889058; // تأكد من وضع رقم القناة هنا
+const CHANNEL_ID = 81889058; 
 const ALLOWED_PLAYERS = ['أوكسجينه', 'أوكسجيته', 'أوكسجيئه'];
 
 // --- المعالجة الرئيسية ---
 client.on('groupMessage', async (message) => {
-    // 1. الفلاتر الأساسية
     if (message.sourceSubscriberId != TARGET_USER_ID) return;
     if (message.targetGroupId != CHANNEL_ID) return;
     if (message.type !== 'text/image_link') return;
@@ -23,17 +22,12 @@ client.on('groupMessage', async (message) => {
         const response = await fetch(message.body);
         const buffer = Buffer.from(await response.arrayBuffer());
 
-        // 2. التحقق من أنها كابتشا (بناءً على اللون الأحمر كما في كودك السابق)
         if (!(await isCaptchaByColor(buffer))) return;
 
-        // 3. استخراج اسم اللاعب
         const playerName = await extractPlayerName(buffer);
         
-        // 4. التحقق من الاسم
         if (ALLOWED_PLAYERS.some(n => playerName.includes(n))) {
             console.log(`✅ تم التعرف على اللاعب: ${playerName} - جاري الحل...`);
-            
-            // 5. حل الكابتشا
             const code = await solveCaptcha(buffer);
             if (code) {
                 await client.messaging.sendGroupMessage(CHANNEL_ID, `#${code}`);
@@ -97,25 +91,45 @@ async function solveCaptcha(buffer) {
 client.on('ready', () => {
     console.log("🚀 البوت يعمل الآن (مراقب للكابتشا فقط)");
 
-    // دالة إرسال الأمر
     const sendBoxCommand = async () => {
         try {
             await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق');
             console.log("📥 تم إرسال أمر !مد صندوق");
 
-            // مستمع مؤقت للرد
-            const responseHandler = (message) => {
+            const responseHandler = async (message) => {
                 if (message.targetGroupId == CHANNEL_ID && message.body.startsWith('/me 📦 حالة الصناديق')) {
                     
-                    // استخراج النصوص المطلوبة
                     const matchA = message.body.match(/حالة الضمان:\s*(.*)/);
                     const matchB = message.body.match(/الجهاز الزمني:\s*(.*)/);
 
-                    const a = matchA ? matchA[1].trim() : "غير موجود";
-                    const b = matchB ? matchB[1].trim() : "غير موجود";
+                    const a = matchA ? matchA[1].trim() : "";
+                    const b = matchB ? matchB[1].trim() : "";
+
+                    let timer = 0;
+
+                    // البحث في المتغير b
+                    if (b.includes("غير نشط")) {
+                        // البحث في المتغير a فقط
+                        if (!a.includes("غير جاهز")) {
+                            await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق ضمان وقت');
+                            timer = 3 * 60 * 60; // 3 ساعات بالثواني
+                        } else {
+                            timer = 0;
+                        }
+                    } else {
+                        // استخراج الوقت من b وحسابه بالثواني
+                        const h = b.match(/(\d+)س/);
+                        const m = b.match(/(\d+)د/);
+                        const s = b.match(/(\d+)ث/);
+
+                        if (h) timer += parseInt(h[1]) * 3600;
+                        if (m) timer += parseInt(m[1]) * 60;
+                        if (s) timer += parseInt(s[1]);
+                    }
 
                     console.log("قيمة a:", a);
                     console.log("قيمة b:", b);
+                    console.log("قيمة timer (بالثواني):", timer);
 
                     client.removeListener('groupMessage', responseHandler);
                 }
@@ -123,7 +137,6 @@ client.on('ready', () => {
 
             client.on('groupMessage', responseHandler);
 
-            // إزالة المستمع بعد 5 ثوانٍ إذا لم تصل الرسالة
             setTimeout(() => {
                 client.removeListener('groupMessage', responseHandler);
             }, 5000);
@@ -133,10 +146,7 @@ client.on('ready', () => {
         }
     };
 
-    // تنفيذ الأمر فور تشغيل البوت
     sendBoxCommand();
-
-    // تكرار المهمة كل 30 دقيقة
     setInterval(sendBoxCommand, 30 * 60 * 1000);
 });
 
