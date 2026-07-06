@@ -6,7 +6,7 @@ const client = new WOLF();
 
 // --- الإعدادات ---
 const TARGET_USER_ID = 76023268; // معرف بوت الألعاب
-const CHANNEL_ID = 81671599;      // معرف المجموعة
+const CHANNEL_ID = 9969;      // معرف المجموعة
 
 let globalTimer = 0;
 
