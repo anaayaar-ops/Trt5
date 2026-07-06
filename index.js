@@ -2,51 +2,53 @@ import 'dotenv/config';
 import wolfjs from 'wolf.js';
 
 const { WOLF } = wolfjs;
-const client = new WOLF();
 
-const CHANNEL_ID = 9969;
+const settings = {
+    identity: process.env.U_MAIL,
+    secret: process.env.U_PASS,
+    targetRoomId: 9969,
+    command1: "!مد مهام",
+    command2: "!مد تحالف ايداع كل",
+    delayBetweenCommands: 1000,    // 1 ثانية
+    delayBeforeRepeat: 62000       // 62 ثانية
+};
 
-// دالة بسيطة للانتظار
+const service = new WOLF();
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-client.on('ready', async () => {
-    console.log(`🚀 البوت متصل! يبدأ العمل في القناة: ${CHANNEL_ID}`);
+// دالة تنفيذ المهام التلقائية
+const runAutoTasks = async () => {
+    console.log(`🟢 [نظام المهام] بدأ العمل في الروم: ${settings.targetRoomId}`);
     
-    try {
-        await client.group.joinById(CHANNEL_ID);
-        console.log(`✅ تم الانضمام للقناة: ${CHANNEL_ID}`);
-        
-        // بدء حلقة المهام
-        startTaskLoop();
-    } catch (err) {
-        console.error("❌ خطأ في الانضمام للقناة:", err.message);
-    }
-});
-
-async function startTaskLoop() {
     while (true) {
         try {
-            // 1. إرسال أمر المهام
-            await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد مهام');
-            console.log('✅ تم إرسال "!مد مهام"');
+            // إرسال الأمر الأول
+            await service.messaging.sendGroupMessage(settings.targetRoomId, settings.command1);
+            console.log(`✅ تم إرسال: ${settings.command1}`);
 
-            // 2. انتظار ثانية واحدة
-            await sleep(1000);
+            // انتظار ثانية
+            await sleep(settings.delayBetweenCommands);
 
-            // 3. إرسال أمر التحالف
-            await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد تحالف ايداع كل');
-            console.log('✅ تم إرسال "!مد تحالف ايداع كل"');
+            // إرسال الأمر الثاني
+            await service.messaging.sendGroupMessage(settings.targetRoomId, settings.command2);
+            console.log(`✅ تم إرسال: ${settings.command2}`);
 
-            // 4. انتظار 61 ثانية قبل التكرار
-            console.log('⏳ بانتظار 61 ثانية للدورة القادمة...');
-            await sleep(61000);
+            // انتظار 62 ثانية قبل التكرار
+            await sleep(settings.delayBeforeRepeat);
 
         } catch (err) {
-            console.error("❌ حدث خطأ أثناء إرسال الرسائل، سيتم المحاولة مجدداً:", err.message);
-            await sleep(5000); // انتظار 5 ثواني عند الخطأ قبل إعادة المحاولة
+            console.error(`❌ حدث خطأ أثناء تنفيذ الأوامر: ${err.message}`);
+            // انتظار قصير قبل المحاولة التالية في حال حدوث خطأ
+            await sleep(5000);
         }
     }
-}
+};
+
+service.on('ready', () => {
+    console.log(`✅ البوت متصل بنجاح: ${service.currentSubscriber.nickname}`);
+    // بدء تنفيذ المهام فور اتصال البوت
+    runAutoTasks();
+});
 
 // تسجيل الدخول
-client.login(process.env.U_MAIL, process.env.U_PASS);
+service.login(settings.identity, settings.secret);
