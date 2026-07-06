@@ -6,7 +6,7 @@ const client = new WOLF();
 
 // --- الإعدادات ---
 const TARGET_USER_ID = 76023268; // معرف بوت الألعاب
-const CHANNEL_ID = 9969;      // معرف المجموعة
+const CHANNEL_ID = 81671599;      // معرف المجموعة
 
 let globalTimer = 0;
 
@@ -34,7 +34,7 @@ function escapeRegExp(string) {
 // --- دالة منطق فتح الصناديق ---
 async function processBoxOpening(g, s, b, currentPoints, isNotReady) {
     const sendWithDelay = async (cmd) => {
-        await client.messaging().sendGroupMessage(CHANNEL_ID, cmd);
+        await client.messaging.sendGroupText(CHANNEL_ID, cmd);
         await new Promise(resolve => setTimeout(resolve, 10000));
     };
 
@@ -67,14 +67,14 @@ client.on('groupMessage', async (message) => {
                 if (symMatch) {
                     const pattern = new RegExp(`${escapeRegExp(symMatch[1])}(.*?)${escapeRegExp(symMatch[2])}`, 'gu');
                     const matches = [...content.matchAll(pattern)];
-                    if (matches.length > 0) await client.messaging().sendGroupMessage(message.targetGroupId, formatAnswer(matches.length > 1 ? matches[1][1] : matches[0][1]));
+                    if (matches.length > 0) await client.messaging.sendGroupText(message.targetGroupId, formatAnswer(matches.length > 1 ? matches[1][1] : matches[0][1]));
                 }
             } else if (content.includes("داخل القوسين")) {
                 const match = content.match(/\((.*?)\)/);
-                if (match) await client.messaging().sendGroupMessage(message.targetGroupId, formatAnswer(match[1]));
+                if (match) await client.messaging.sendGroupText(message.targetGroupId, formatAnswer(match[1]));
             } else if (content.includes("الأقواس المعقوفة")) {
                 const match = content.match(/\{(.*?)\}/);
-                if (match) await client.messaging().sendGroupMessage(message.targetGroupId, formatAnswer(match[1]));
+                if (match) await client.messaging.sendGroupText(message.targetGroupId, formatAnswer(match[1]));
             } else if (content.includes("يمين") || content.includes("يسار")) {
                 const symMatch = content.match(/للعلامة\s*([^\s])/u);
                 const dirMatch = content.match(/(اليمين|يمين|اليسار|يسار)/u);
@@ -83,7 +83,7 @@ client.on('groupMessage', async (message) => {
                     const matches = [...content.matchAll(regex)];
                     if (matches.length > 0) {
                         const target = matches.length > 1 ? matches[1] : matches[0];
-                        await client.messaging().sendGroupMessage(message.targetGroupId, formatAnswer(dirMatch[0].includes("يمين") ? target[2] : target[1]));
+                        await client.messaging.sendGroupText(message.targetGroupId, formatAnswer(dirMatch[0].includes("يمين") ? target[2] : target[1]));
                     }
                 }
             } else if (content.includes("الرمز رقم")) {
@@ -92,7 +92,7 @@ client.on('groupMessage', async (message) => {
                 if (indexMatch && listMatch) {
                     const items = listMatch[1].split('|').map(s => s.trim());
                     const index = parseInt(indexMatch[1]) - 1;
-                    if (items[index]) await client.messaging().sendGroupMessage(message.targetGroupId, formatAnswer(items[index]));
+                    if (items[index]) await client.messaging.sendGroupText(message.targetGroupId, formatAnswer(items[index]));
                 }
             }
         }
@@ -102,7 +102,7 @@ client.on('groupMessage', async (message) => {
 // --- وظيفة فحص الصناديق ---
 const sendBoxCommand = () => {
     return new Promise((resolve) => {
-        client.messaging().sendGroupMessage(CHANNEL_ID, '!مد صندوق');
+        client.messaging.sendGroupText(CHANNEL_ID, '!مد صندوق');
         const responseHandler = async (message) => {
             if (message.targetGroupId == CHANNEL_ID && message.body.startsWith('/me 📦 حالة الصناديق')) {
                 const body = message.body;
@@ -118,7 +118,7 @@ const sendBoxCommand = () => {
                     const h = matchB[1].match(/(\d+)س/); const m = matchB[1].match(/(\d+)د/); const ts = matchB[1].match(/(\d+)ث/);
                     if (h) tempTimer += parseInt(h[1]) * 3600; if (m) tempTimer += parseInt(m[1]) * 60; if (ts) tempTimer += parseInt(ts[1]);
                 } else if (!matchA[1].includes("غير جاهز")) {
-                    client.messaging().sendGroupMessage(CHANNEL_ID, '!مد صندوق ضمان وقت');
+                    client.messaging.sendGroupText(CHANNEL_ID, '!مد صندوق ضمان وقت');
                     tempTimer = 3 * 60 * 60;
                 }
                 globalTimer = tempTimer;
@@ -135,9 +135,9 @@ const sendBoxCommand = () => {
 const startTaskLoop = async () => {
     while (true) {
         try {
-            await client.messaging().sendGroupMessage(CHANNEL_ID, '!مد مهام');
+            await client.messaging.sendGroupText(CHANNEL_ID, '!مد مهام');
             await new Promise(resolve => setTimeout(resolve, 2000));
-            await client.messaging().sendGroupMessage(CHANNEL_ID, '!مد تحالف ايداع كل');
+            await client.messaging.sendGroupText(CHANNEL_ID, '!مد تحالف ايداع كل');
             if (globalTimer > 0) {
                 globalTimer = Math.max(0, globalTimer - 64);
                 await new Promise(resolve => setTimeout(resolve, 64000));
