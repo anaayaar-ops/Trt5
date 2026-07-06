@@ -14,6 +14,26 @@ const ALLOWED_PLAYERS = ['تركي.'];
 
 let globalTimer = 0;
 
+// --- دالة الإرسال الآمنة (الحل الجذري للمشكلة) ---
+async function safeSend(groupId, message) {
+    let retries = 0;
+    while (retries < 10) { // نحاول 10 مرات قبل الاستسلام
+        if (client.messaging && typeof client.messaging.sendGroupMessage === 'function') {
+            try {
+                await client.messaging.sendGroupMessage(groupId, message);
+                return true;
+            } catch (err) {
+                console.error("خطأ أثناء الإرسال:", err.message);
+            }
+        }
+        console.log(`⚠️ المراسلة غير جاهزة، محاولة ${retries + 1}...`);
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        retries++;
+    }
+    console.error("❌ فشل الإرسال: المكتبة لم تجهز بعد.");
+    return false;
+}
+
 // --- الدوال المساعدة ---
 function cleanText(text) {
     if (!text) return "";
@@ -78,7 +98,7 @@ async function solveCaptcha(buffer) {
 // --- منطق الصناديق ---
 async function processBoxOpening(g, s, b, currentPoints, isNotReady) {
     const sendWithDelay = async (cmd) => {
-        if (client.messaging) await client.messaging.sendGroupMessage(CHANNEL_ID, cmd);
+        await safeSend(CHANNEL_ID, cmd);
         await new Promise(resolve => setTimeout(resolve, 5000));
     };
 
@@ -97,46 +117,37 @@ async function processBoxOpening(g, s, b, currentPoints, isNotReady) {
     }
 }
 
-// --- التعامل مع الرسائل (كابتشا) ---
+// --- الأحداث ---
 client.on('groupMessage', async (message) => {
-    if (message.sourceSubscriberId != TARGET_USER_ID || message.targetGroupId != CHANNEL_ID || message.type !== 'text/image_link') return;
-    try {
-        const response = await fetch(message.body);
-        const buffer = Buffer.from(await response.arrayBuffer());
-        if (!(await isCaptchaByColor(buffer))) return;
-        const playerName = await extractPlayerName(buffer);
-        if (ALLOWED_PLAYERS.some(n => playerName.includes(n))) {
-            const code = await solveCaptcha(buffer);
-            if (code && client.messaging) await client.messaging.sendGroupMessage(CHANNEL_ID, formatAnswer(code));
-        }
-    } catch (err) { console.error("⚠️ خطأ كابتشا:", err.message); }
-});
+    // كابتشا
+    if (message.sourceSubscriberId == TARGET_USER_ID && message.targetGroupId == CHANNEL_ID && message.type === 'text/image_link') {
+        try {
+            const response = await fetch(message.body);
+            const buffer = Buffer.from(await response.arrayBuffer());
+            if (!(await isCaptchaByColor(buffer))) return;
+            const playerName = await extractPlayerName(buffer);
+            if (ALLOWED_PLAYERS.some(n => playerName.includes(n))) {
+                const code = await solveCaptcha(buffer);
+                if (code) await safeSend(CHANNEL_ID, formatAnswer(code));
+            }
+        } catch (err) { console.error("⚠️ خطأ كابتشا:", err.message); }
+    }
 
-// --- التعامل مع الفخاخ ---
-client.on('groupMessage', async (message) => {
+    // فخاخ
     try {
         const content = message.body;
-        if (message.targetGroupId !== CHANNEL_ID || !client.messaging) return;
-        // ... (منطق الفخاخ كما كان)
+        if (message.targetGroupId !== CHANNEL_ID) return;
         if (content.includes("تحقق") && ALLOWED_PLAYERS.some(p => content.includes(p))) {
              if (content.includes("داخل القوسين")) {
                 const match = content.match(/\((.*?)\)/);
-                if (match) await client.messaging.sendGroupMessage(message.targetGroupId, formatAnswer(match[1]));
+                if (match) await safeSend(message.targetGroupId, formatAnswer(match[1]));
             }
-            // ... (باقي منطق الفخاخ هنا)
         }
-    } catch (err) { console.error("خطأ:", err); }
+    } catch (err) { console.error("خطأ فخاخ:", err); }
 });
 
-// --- دالة فحص الصناديق الآمنة ---
 const sendBoxCommand = async () => {
-    // تأكد من جهوزية وحدة المراسلة
-    if (!client.messaging || typeof client.messaging.sendGroupMessage !== 'function') {
-        console.log("⚠️ انتظار جهوزية المراسلة...");
-        return;
-    }
-
-    client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق');
+    await safeSend(CHANNEL_ID, '!مد صندوق');
 
     return new Promise((resolve) => {
         const responseHandler = async (message) => {
@@ -154,7 +165,7 @@ const sendBoxCommand = async () => {
                     const h = matchB[1].match(/(\d+)س/); const m = matchB[1].match(/(\d+)د/); const ts = matchB[1].match(/(\d+)ث/);
                     if (h) tempTimer += parseInt(h[1]) * 3600; if (m) tempTimer += parseInt(m[1]) * 60; if (ts) tempTimer += parseInt(ts[1]);
                 } else if (matchA && !matchA[1].includes("غير جاهز")) {
-                    client.messaging.sendGroupMessage(CHANNEL_ID, '!مد صندوق ضمان وقت');
+                    await safeSend(CHANNEL_ID, '!مد صندوق ضمان وقت');
                     tempTimer = 3 * 60 * 60;
                 }
                 globalTimer = tempTimer;
@@ -170,11 +181,10 @@ const sendBoxCommand = async () => {
 const startTaskLoop = async () => {
     while (true) {
         try {
-            if(client.messaging) {
-                await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد مهام');
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                await client.messaging.sendGroupMessage(CHANNEL_ID, '!مد تحالف ايداع كل');
-            }
+            await safeSend(CHANNEL_ID, '!مد مهام');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            await safeSend(CHANNEL_ID, '!مد تحالف ايداع كل');
+            
             if (globalTimer > 0) {
                 globalTimer = Math.max(0, globalTimer - 64);
                 await new Promise(resolve => setTimeout(resolve, 64000));
@@ -188,9 +198,9 @@ const startTaskLoop = async () => {
 };
 
 client.on('ready', async () => {
-    console.log("✅ البوت متصل!");
-    // تأخير أمان 3 ثواني قبل البدء
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log("✅ البوت متصل ومستقر!");
+    // تأخير إضافي لضمان تحميل كل الخدمات
+    await new Promise(resolve => setTimeout(resolve, 5000));
     
     await sendBoxCommand();
     setInterval(sendBoxCommand, 30 * 60 * 1000);
