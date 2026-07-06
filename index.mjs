@@ -20,12 +20,8 @@ function resolveSendMethod() {
     if (cachedSendMethod) return cachedSendMethod;
     if (!client.messaging) return null;
 
-    // الحصول على كل الدوال الموجودة في الـ Prototype
-    const proto = Object.getPrototypeOf(client.messaging);
-    const methods = Object.getOwnPropertyNames(proto);
-
-    // الأسماء المحتملة التي قد تستخدمها المكتبة لديك
-    const candidates = ['sendGroupMessage', 'send', 'sendMessage', 'sendGroup'];
+    // الأسماء المحتملة التي اكتشفناها في سجلاتك
+    const candidates = ['sendChannelMessage', 'sendGroupMessage', 'send', 'sendMessage'];
     
     for (let name of candidates) {
         if (typeof client.messaging[name] === 'function') {
@@ -34,7 +30,6 @@ function resolveSendMethod() {
             return cachedSendMethod;
         }
     }
-    console.error("❌ لم يتم العثور على دالة إرسال! الدوال المتاحة هي:", methods);
     return null;
 }
 
@@ -42,10 +37,13 @@ async function safeSend(groupId, message) {
     const sendMethod = resolveSendMethod();
     if (sendMethod) {
         try {
+            // ملاحظة: دالة sendChannelMessage تأخذ (channelId, message)
             return await sendMethod(groupId, message);
         } catch (e) {
             console.error("خطأ أثناء التنفيذ:", e.message);
         }
+    } else {
+        console.error("❌ لم يتم العثور على دالة إرسال صالحة في client.messaging");
     }
     return false;
 }
@@ -201,7 +199,6 @@ const startTaskLoop = async () => {
 
 client.on('ready', async () => {
     console.log("✅ البوت متصل ومستقر!");
-    // تأخير أمان 5 ثواني
     await new Promise(resolve => setTimeout(resolve, 5000));
     await sendBoxCommand();
     setInterval(sendBoxCommand, 30 * 60 * 1000);
