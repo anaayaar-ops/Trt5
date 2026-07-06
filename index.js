@@ -4,27 +4,29 @@ import wolfjs from 'wolf.js';
 const { WOLF } = wolfjs;
 const client = new WOLF();
 
-client.on('ready', async () => {
-    console.log('🚀 البوت متصل! جاري استخراج الدوال المتاحة...');
+async function startTaskLoop() {
+    while (true) {
+        try {
+            // استبدلنا sendGroupMessage بـ send
+            await client.messaging.send(CHANNEL_ID, '!مد مهام');
+            console.log('✅ تم إرسال "!مد مهام"');
 
-    // فحص الدوال الموجودة داخل client.messaging
-    console.log("--- الدوال المتاحة في client.messaging ---");
-    if (client.messaging) {
-        console.log(Object.keys(client.messaging));
-    } else {
-        console.log("client.messaging غير موجود!");
-    }
+            await sleep(1000);
 
-    // فحص الدوال الموجودة داخل client.group (غالباً ما تكون دالة الإرسال هنا في النسخ الحديثة)
-    console.log("--- الدوال المتاحة في client.group ---");
-    if (client.group) {
-        console.log(Object.keys(client.group));
-    } else {
-        console.log("client.group غير موجود!");
+            // استبدلنا sendGroupMessage بـ send
+            await client.messaging.send(CHANNEL_ID, '!مد تحالف ايداع كل');
+            console.log('✅ تم إرسال "!مد تحالف ايداع كل"');
+
+            console.log('⏳ بانتظار 61 ثانية للدورة القادمة...');
+            await sleep(61000);
+
+        } catch (err) {
+            console.error("❌ حدث خطأ:", err.message);
+            await sleep(5000);
+        }
     }
-    
-    console.log("--- انتهى الفحص ---");
-});
+}
+
 
 // تسجيل الدخول
 client.login(process.env.U_MAIL, process.env.U_PASS);
