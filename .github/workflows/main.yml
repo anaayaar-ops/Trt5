@@ -4,8 +4,8 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 */4 * * *'
-  workflow_dispatch:
+    - cron: '0 */4 * * *' # يعمل كل 4 ساعات
+  workflow_dispatch: # يتيح لك تشغيله يدوياً من زر Actions
 
 concurrency:
   group: xobot-group
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22'
@@ -27,18 +27,17 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          # تثبيت المكتبات اللازمة لعمل Sharp و Tesseract
+          # هذه الحزم ضرورية لعمل مكتبات معالجة الصور sharp و tesseract
           sudo apt-get install -y tesseract-ocr libtesseract-dev libvips-dev
 
       - name: Install dependencies
         run: |
-          # نستخدم npm ci لأنها أسرع وأكثر أماناً في بيئات البناء
-          npm ci
+          # نستخدم npm install لأنه لا يشترط وجود ملف package-lock.json
+          npm install
 
       - name: Run Bot
         env:
           U_MAIL: ${{ secrets.U_MAIL }}
           U_PASS: ${{ secrets.U_PASS }}
-        # سنستخدم npm start بدلاً من node index.js
-        # وهذا سيعتمد على ما كتبته في package.json (أي تشغيل index.mjs تلقائياً)
+        # يقوم هذا الأمر بتنفيذ ما هو موجود في "scripts": { "start": ... } داخل ملف package.json
         run: npm start
