@@ -19,18 +19,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Node.mjs
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: '22'
 
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          # تثبيت المكتبات اللازمة لعمل Sharp و Tesseract
+          sudo apt-get install -y tesseract-ocr libtesseract-dev libvips-dev
+
       - name: Install dependencies
         run: |
-          rm -rf node_modules package-lock.json
-          npm install --no-audit --no-fund
-          
+          # نستخدم npm ci لأنها أسرع وأكثر أماناً في بيئات البناء
+          npm ci
+
       - name: Run Bot
         env:
           U_MAIL: ${{ secrets.U_MAIL }}
           U_PASS: ${{ secrets.U_PASS }}
-        run: node index.js
+        # سنستخدم npm start بدلاً من node index.js
+        # وهذا سيعتمد على ما كتبته في package.json (أي تشغيل index.mjs تلقائياً)
+        run: npm start
