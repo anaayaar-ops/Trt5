@@ -1,50 +1,49 @@
 import 'dotenv/config';
 import wolfjs from 'wolf.js';
-
 const { WOLF } = wolfjs;
-const client = new WOLF();
 
-// --- الإعدادات ---
-const CHANNEL_ID = 9969; 
-const X = 63000; // اضبط الوقت هنا (بالملي ثانية)
+const service = new WOLF();
 
-// --- دالة الإرسال ---
-async function sendMessage(message) {
-    try {
-        await client.messaging.sendChannelMessage(CHANNEL_ID, message);
-        console.log(`تم إرسال: ${message}`);
-    } catch (e) {
-        console.error("خطأ أثناء الإرسال:", e.message);
+// دالة تفحص أي object وتطلع كل الدوال المرتبطة بها (حتى الموروثة من الـ prototype)
+function getAllMethods(obj) {
+    let methods = new Set();
+    let current = obj;
+    while (current) {
+        Object.getOwnPropertyNames(current).forEach(name => {
+            if (typeof obj[name] === 'function') {
+                methods.add(name);
+            }
+        });
+        current = Object.getPrototypeOf(current);
     }
+    return [...methods];
 }
 
-// --- منطق التشغيل ---
-client.on('ready', async () => {
-    console.log("✅ البوت متصل!");
-    
-    // محاولة دخول الغرفة
-    try {
-        await client.group.join(CHANNEL_ID);
-        console.log(`تم الانضمام للغرفة: ${CHANNEL_ID}`);
-    } catch (e) {
-        console.log("ربما البوت موجود مسبقاً في الغرفة.");
-    }
+service.on('ready', async () => {
+    console.log(`✅ تم تسجيل الدخول: ${service.currentSubscriber.nickname}`);
 
-    // حلقة العمليات المستمرة
-    while (true) {
-        // 1. إرسال المهام
-        await sendMessage('!مد مهام');
-        
-        // 2. انتظار ثانية
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // 3. إرسال تحالف ايداع
-        await sendMessage('!مد تحالف ايداع كل');
-        
-        // 4. انتظار المدة المحددة X
-        await new Promise(resolve => setTimeout(resolve, X));
-    }
+    // 1) اطبع كل "المدراء" (managers) المتوفرة في الكلينت الرئيسي
+    console.log("\n=== كل الخصائص المتوفرة في service ===");
+    console.log(Object.keys(service));
+
+    // 2) دور تحديدًا على أي خاصية اسمها فيها كلمة event
+    const eventRelatedKeys = Object.keys(service).filter(k => 
+        k.toLowerCase().includes('event')
+    );
+    console.log("\n=== الخصائص المتعلقة بـ event ===");
+    console.log(eventRelatedKeys);
+
+    // 3) لكل خاصية متعلقة بـ event، اطبع كل الدوال جواها
+    eventRelatedKeys.forEach(key => {
+        console.log(`\n--- دوال ${key} ---`);
+        console.log(getAllMethods(service[key]));
+    });
+
+    // 4) احتياطي: لو الاسم مختلف تمامًا، دور بكل الكلينت عن أي دالة اسمها فيها "event"
+    console.log("\n=== كل دوال service نفسها (فلترة event) ===");
+    console.log(getAllMethods(service).filter(m => m.toLowerCase().includes('event')));
+
+    process.exit(0);
 });
 
-// تسجيل الدخول
-client.login(process.env.U_MAIL, process.env.U_PASS);
+service.login(process.env.U_MAIL, process.env.U_PASS);
