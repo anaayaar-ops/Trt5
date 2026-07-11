@@ -7,7 +7,7 @@
     "start": "node index.mjs"
   },
   "dependencies": {
-    "wolf.js": "latest",
+    "wolf.js": "2.7.9",
     "dotenv": "latest",
     "jimp": "latest",
     "pixelmatch": "latest",
