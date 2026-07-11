@@ -4,7 +4,7 @@ const { WOLF, OnlineState } = wolfjs;
 
 const service = new WOLF();
 
-const GROUP_ID = 224; // حط رقم الجروب بتاعك
+const GROUP_ID = 9969; // حط رقم الجروب بتاعك
 
 const RUN_DURATION_MS = (3 * 60 + 55) * 60 * 1000; // 3 ساعات و55 دقيقة
 
@@ -44,9 +44,6 @@ service.on('ready', async () => {
             console.log('\n=== السلوتات المتاحة (تشخيص) ===');
             console.log(slots.map(s => ({ id: s.id, locked: s.locked, occupierId: s.occupierId, reservedOccupierId: s.reservedOccupierId })));
 
-            // ملحوظة: شلنا شرط "!s.locked" لأن دالة join() نفسها في المكتبة
-            // مش بتتأكد من خاصية locked أصلاً، وبما إنك أدمن مفروض تقدر
-            // تدخل أي سلوت مش محجوز فعليًا (occupierId / reservedOccupierId)
             const freeSlot = slots.find(s => !s.occupierId && !s.reservedOccupierId);
 
             if (!freeSlot) {
@@ -55,10 +52,7 @@ service.on('ready', async () => {
                 console.log(`⏳ جاري الانضمام للسلوت ${freeSlot.id} ...`);
                 await service.stage.slot.join(GROUP_ID, freeSlot.id);
                 currentSlotId = freeSlot.id;
-                console.log('✅ تم الانضمام للاستيج.');
-
-                await service.stage.slot.mute(GROUP_ID, freeSlot.id);
-                console.log('🔇 تم كتم الصوت. البوت واقف على الاستيج بصمت.');
+                console.log('✅ تم الانضمام للاستيج بصمت (من غير شعار الكتم، لأننا لا نستخدم mute() ولا نبعث أي صوت أصلاً).');
             }
         }
     } catch (err) {
