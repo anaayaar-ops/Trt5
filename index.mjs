@@ -5,7 +5,7 @@ const { WOLF, OnlineState } = wolfjs;
 const service = new WOLF();
 
 const GROUP_ID = 9969; // حط رقم الجروب بتاعك
-const WATCHED_SUBSCRIBER_ID = 80055399; // العضوية المسموح لها تصدر الأمر
+const WATCHED_SUBSCRIBER_ID = 51660277 ; // العضوية المسموح لها تصدر الأمر
 const LEAVE_COMMAND = '!كات نزول';
 
 const RUN_DURATION_MS = (3 * 60 + 55) * 60 * 1000; // 3 ساعات و55 دقيقة
