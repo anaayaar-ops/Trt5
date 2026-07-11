@@ -28,7 +28,8 @@ jobs:
         run: |
           sudo apt-get update
           # هذه الحزم ضرورية لعمل مكتبات معالجة الصور sharp و tesseract
-          sudo apt-get install -y tesseract-ocr libtesseract-dev libvips-dev
+          # وضفنا ffmpeg هنا عشان الصعود على الاستيج
+          sudo apt-get install -y tesseract-ocr libtesseract-dev libvips-dev ffmpeg
 
       - name: Install dependencies
         run: |
