@@ -4,42 +4,55 @@ const { WOLF } = wolfjs;
 
 const service = new WOLF();
 
-// ⚠️ حط هنا ID الجروب اللي عايز تصعد فيه الاستيج
-const GROUP_ID = 9969; // <-- غيّر الرقم ده
+const GROUP_ID = 9969; // حطيت رقم الجروب من الصور (targetChannelId)
+
+// دالة تطبع object بشكل واضح من غير الـ client الضخم
+function cleanStage(stage) {
+    return {
+        id: stage.id,
+        expireTime: stage.expireTime,
+        targetChannelId: stage.targetChannelId
+    };
+}
 
 service.on('ready', async () => {
     console.log(`✅ تم تسجيل الدخول: ${service.currentSubscriber.nickname}`);
 
-    if (!GROUP_ID) {
-        console.log('❌ لازم تحط GROUP_ID الصحيح فوق في الكود قبل ما تشغّله');
-        return process.exit(1);
-    }
-
     try {
-        // 1) نشوف الاستيجات المتاحة في الجروب
+        // 1) نجيب الاستيجات المتاحة ونطبعها بشكل نضيف (من غير الـ client)
         const stages = await service.stage.getAvailableStages(GROUP_ID);
-        console.log('\n=== الاستيجات المتاحة ===');
-        console.log(stages);
+        console.log('\n=== الاستيجات المتاحة (نسخة نضيفة) ===');
+        console.log(stages.map(cleanStage));
 
-        // 2) نصعد على الاستيج
+        // 2) نتأكد هل احنا أصلاً عضو/عنده صلاحية في الجروب
+        const group = await service.group.getById(GROUP_ID);
+        console.log('\n=== معلومات الجروب ===');
+        console.log({
+            id: group.id,
+            name: group.name,
+            capabilities: group.capabilities // ده مهم: يوضح صلاحياتك في الجروب
+        });
+
+        // 3) نحاول نصعد الاستيج ونطبع النتيجة بالتفصيل
         console.log('\n⏳ جاري الصعود على الاستيج...');
         const result = await service.stage.onStage(GROUP_ID);
-        console.log('✅ نتيجة onStage:', result);
+        console.log('نتيجة onStage:', result);
 
-        // 3) نتأكد من السلوت اللي واخده
+        if (result === false) {
+            console.log('\n⚠️ onStage رجعت false — يعني فشل الانضمام من غير استثناء.');
+            console.log('الأسباب المحتملة: مفيش سلوت فاضي / مفيش صلاحية / الاستيج مقفول.');
+            return process.exit(0);
+        }
+
+        // 4) لو نجحنا، نكمل نجيب باقي التفاصيل
         const slotId = await service.stage.getSlotId(GROUP_ID);
-        console.log('\n=== Slot ID ===');
-        console.log(slotId);
+        console.log('\n=== Slot ID ===', slotId);
 
-        // 4) نشوف إعدادات الصوت الحالية
         const audioConfig = await service.stage.getAudioConfig(GROUP_ID);
-        console.log('\n=== Audio Config ===');
-        console.log(audioConfig);
+        console.log('\n=== Audio Config ===', audioConfig);
 
-        // 5) نشوف حالة البث
         const broadcastState = await service.stage.getBroadcastState(GROUP_ID);
-        console.log('\n=== Broadcast State ===');
-        console.log(broadcastState);
+        console.log('\n=== Broadcast State ===', broadcastState);
 
     } catch (err) {
         console.error('\n❌ حصل خطأ:', err.message || err);
