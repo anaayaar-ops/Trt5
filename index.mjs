@@ -105,20 +105,12 @@ service.on('error', (err) => {
 });
 
 // === مراقبة الرسائل الخاصة ===
-// أول مرة، هنطبع شكل الرسالة كاملة عشان نتأكد من أسماء الخصائص الصحيحة
-// (زي isGroup, sourceSubscriberId, body) قبل ما نعتمد عليها.
-service.on('message', async (message) => {
+service.on('privateMessage', async (message) => {
     try {
-        console.log('\n📩 رسالة جديدة وصلت (تشخيص) — احذف هذا السطر بعد التأكد:');
-        console.log(JSON.stringify(message, null, 2));
+        const senderId = message.authorId || message.sourceSubscriberId;
+        const text = message.content || message.body || '';
 
-        // الشرط المتوقع: رسالة خاصة (مش جروب) ومن العضوية المحددة
-        if (message.isGroup) { return; } // تجاهل رسائل الجروبات
-        if (message.sourceSubscriberId !== WATCHED_SUBSCRIBER_ID) { return; }
-
-        const text = (message.body || '').trim();
-
-        if (text === LEAVE_COMMAND) {
+        if (senderId === WATCHED_SUBSCRIBER_ID && text.includes(LEAVE_COMMAND)) {
             console.log(`\n📥 استلمنا أمر النزول من العضوية ${WATCHED_SUBSCRIBER_ID}`);
 
             if (currentSlotId !== null) {
