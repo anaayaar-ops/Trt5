@@ -4,7 +4,7 @@ const { WOLF, OnlineState } = wolfjs;
 
 const service = new WOLF();
 
-const GROUP_ID = 9969; // حط رقم الجروب بتاعك
+const GROUP_ID = 18432094; // حط رقم الجروب بتاعك
 const WATCHED_SUBSCRIBER_ID = 51660277 ; // العضوية المسموح لها تصدر الأمر
 const LEAVE_COMMAND = '!كات نزول';
 
