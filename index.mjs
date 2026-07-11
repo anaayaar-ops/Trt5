@@ -4,15 +4,12 @@ const { WOLF, OnlineState } = wolfjs;
 
 const service = new WOLF();
 
-const GROUP_ID = 18432094 ; // حط رقم الجروب بتاعك
+const GROUP_ID = 224; // حط رقم الجروب بتاعك
 
-// نخلي البوت يقفل نفسه بنفسه شوية قبل ما الـ 4 ساعات تخلص فعليًا
-// (احتياط عشان يقدر يسيب السلوت بلطف قبل ما GitHub تقفل الجوب بالقوة)
 const RUN_DURATION_MS = (3 * 60 + 55) * 60 * 1000; // 3 ساعات و55 دقيقة
 
 let currentSlotId = null;
 
-// دالة تنظيف: تسيب السلوت بلطف قبل ما نقفل البرنامج
 async function gracefulShutdown(reason) {
     console.log(`\n🛑 جاري إيقاف البوت بسبب: ${reason}`);
 
@@ -31,7 +28,6 @@ async function gracefulShutdown(reason) {
 service.on('ready', async () => {
     console.log(`✅ تم تسجيل الدخول: ${service.currentSubscriber.nickname}`);
 
-    // 1) نضبط الحالة إلى "بعيد"
     try {
         await service.setOnlineState(OnlineState.AWAY);
         console.log('✅ تم ضبط الحالة بنجاح إلى: بعيد (Away)');
@@ -39,14 +35,19 @@ service.on('ready', async () => {
         console.error('⚠️ فشل ضبط الحالة:', err.message || err);
     }
 
-    // 2) نصعد الاستيج ميوت
     try {
         const audioConfig = await service.stage.getAudioConfig(GROUP_ID);
         if (!audioConfig.enabled) {
             console.log('❌ الاستيج غير مفعّل في هذا الجروب.');
         } else {
             const slots = await service.stage.slot.list(GROUP_ID);
-            const freeSlot = slots.find(s => !s.locked && !s.occupierId && !s.reservedOccupierId);
+            console.log('\n=== السلوتات المتاحة (تشخيص) ===');
+            console.log(slots.map(s => ({ id: s.id, locked: s.locked, occupierId: s.occupierId, reservedOccupierId: s.reservedOccupierId })));
+
+            // ملحوظة: شلنا شرط "!s.locked" لأن دالة join() نفسها في المكتبة
+            // مش بتتأكد من خاصية locked أصلاً، وبما إنك أدمن مفروض تقدر
+            // تدخل أي سلوت مش محجوز فعليًا (occupierId / reservedOccupierId)
+            const freeSlot = slots.find(s => !s.occupierId && !s.reservedOccupierId);
 
             if (!freeSlot) {
                 console.log('❌ مفيش سلوت فاضي حاليًا.');
@@ -64,12 +65,10 @@ service.on('ready', async () => {
         console.error('❌ حصل خطأ أثناء الصعود على الاستيج:', err.message || err, err.data ?? '');
     }
 
-    // 3) نظبط مؤقّت لإيقاف البوت بلطف بعد المدة المحددة
     console.log(`\n⏱️ البوت هيشتغل لمدة ${RUN_DURATION_MS / 1000 / 60} دقيقة ثم يتوقف تلقائيًا.`);
     setTimeout(() => gracefulShutdown('انتهاء مدة التشغيل المحددة'), RUN_DURATION_MS);
 });
 
-// نتعامل مع أي إيقاف مفاجئ (زي Ctrl+C أو إشارة إيقاف من GitHub Actions) بنفس اللطف
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
