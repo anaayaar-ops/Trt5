@@ -8,17 +8,22 @@ const GROUP_ID = 9969; // حط رقم الجروب بتاعك
 const WATCHED_SUBSCRIBER_ID = 80055399; // العضوية المسموح لها تصدر الأمر
 const LEAVE_COMMAND = '!كات نزول';
 
-// نخلي البوت يقفل نفسه بنفسه شوية قبل ما الـ 4 ساعات تخلص فعليًا
 const RUN_DURATION_MS = (3 * 60 + 55) * 60 * 1000; // 3 ساعات و55 دقيقة
-
-// نكرر فحص الاستيج كل 10 دقايق
 const CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 دقايق
-
-// أقصى عدد أشخاص مسموح يكونوا موجودين قبل ما نصعد (لو 2 أو أكتر، منصعدش)
 const MAX_OCCUPANTS_TO_JOIN = 1;
 
 let currentSlotId = null;
 let checkIntervalHandle = null;
+
+// دالة تجبر المكتبة تجيب بيانات السلوتات من السيرفر من جديد (مش من الكاش)
+async function forceRefreshSlots(targetChannelId) {
+    try {
+        const channel = await service.channel.getById(targetChannelId);
+        channel.slots = null; // نمسح الكاش القديم
+    } catch (err) {
+        console.error('⚠️ فشل تفريغ الكاش:', err.message || err);
+    }
+}
 
 async function gracefulShutdown(reason) {
     console.log(`\n🛑 جاري إيقاف البوت بسبب: ${reason}`);
@@ -29,6 +34,7 @@ async function gracefulShutdown(reason) {
 
     try {
         if (currentSlotId !== null) {
+            await forceRefreshSlots(GROUP_ID);
             await service.stage.slot.leave(GROUP_ID, currentSlotId);
             console.log('✅ تم مغادرة الاستيج بلطف.');
         }
@@ -52,7 +58,8 @@ async function checkStageAndJoin() {
             return;
         }
 
-        const slots = await service.stage.slot.list(GROUP_ID, false);
+        await forceRefreshSlots(GROUP_ID);
+        const slots = await service.stage.slot.list(GROUP_ID);
         const occupants = slots.filter(s => !!s.occupierId);
 
         console.log(`\n🔍 فحص الاستيج: عدد الأشخاص الموجودين حاليًا = ${occupants.length}`);
@@ -104,7 +111,6 @@ service.on('error', (err) => {
     console.error('❌ خطأ في تسجيل الدخول:', err);
 });
 
-// === مراقبة الرسائل الخاصة ===
 service.on('privateMessage', async (message) => {
     try {
         const senderId = message.authorId || message.sourceSubscriberId;
@@ -114,6 +120,7 @@ service.on('privateMessage', async (message) => {
             console.log(`\n📥 استلمنا أمر النزول من العضوية ${WATCHED_SUBSCRIBER_ID}`);
 
             if (currentSlotId !== null) {
+                await forceRefreshSlots(GROUP_ID);
                 await service.stage.slot.leave(GROUP_ID, currentSlotId);
                 console.log('✅ تم النزول من الاستيج فورًا بناءً على الأمر.');
                 currentSlotId = null;
