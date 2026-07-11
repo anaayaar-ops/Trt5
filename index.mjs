@@ -5,13 +5,27 @@ const { WOLF, OnlineState } = wolfjs;
 const service = new WOLF();
 
 const GROUP_ID = 9969; // حط رقم الجروب بتاعك
+const WATCHED_SUBSCRIBER_ID = 80055399; // العضوية المسموح لها تصدر الأمر
+const LEAVE_COMMAND = '!كات نزول';
 
+// نخلي البوت يقفل نفسه بنفسه شوية قبل ما الـ 4 ساعات تخلص فعليًا
 const RUN_DURATION_MS = (3 * 60 + 55) * 60 * 1000; // 3 ساعات و55 دقيقة
 
+// نكرر فحص الاستيج كل 10 دقايق
+const CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 دقايق
+
+// أقصى عدد أشخاص مسموح يكونوا موجودين قبل ما نصعد (لو 2 أو أكتر، منصعدش)
+const MAX_OCCUPANTS_TO_JOIN = 1;
+
 let currentSlotId = null;
+let checkIntervalHandle = null;
 
 async function gracefulShutdown(reason) {
     console.log(`\n🛑 جاري إيقاف البوت بسبب: ${reason}`);
+
+    if (checkIntervalHandle) {
+        clearInterval(checkIntervalHandle);
+    }
 
     try {
         if (currentSlotId !== null) {
@@ -25,6 +39,46 @@ async function gracefulShutdown(reason) {
     process.exit(0);
 }
 
+async function checkStageAndJoin() {
+    try {
+        if (currentSlotId !== null) {
+            console.log('\nℹ️ البوت أصلاً واقف على الاستيج، مفيش داعي لفحص جديد.');
+            return;
+        }
+
+        const audioConfig = await service.stage.getAudioConfig(GROUP_ID);
+        if (!audioConfig.enabled) {
+            console.log('\n❌ الاستيج غير مفعّل في هذا الجروب.');
+            return;
+        }
+
+        const slots = await service.stage.slot.list(GROUP_ID, false);
+        const occupants = slots.filter(s => !!s.occupierId);
+
+        console.log(`\n🔍 فحص الاستيج: عدد الأشخاص الموجودين حاليًا = ${occupants.length}`);
+
+        if (occupants.length > MAX_OCCUPANTS_TO_JOIN) {
+            console.log(`⏸️ يوجد ${occupants.length} أشخاص (أكتر من الحد المسموح ${MAX_OCCUPANTS_TO_JOIN})، مش هنصعد دلوقتي.`);
+            return;
+        }
+
+        const freeSlot = slots.find(s => !s.occupierId && !s.reservedOccupierId);
+
+        if (!freeSlot) {
+            console.log('❌ مفيش سلوت فاضي حاليًا رغم إن العدد قليل (ممكن كله محجوز مؤقتًا).');
+            return;
+        }
+
+        console.log(`✅ العدد مناسب (${occupants.length} شخص/أشخاص) — جاري الانضمام للسلوت ${freeSlot.id} ...`);
+        await service.stage.slot.join(GROUP_ID, freeSlot.id);
+        currentSlotId = freeSlot.id;
+        console.log('✅ تم الانضمام للاستيج بصمت.');
+
+    } catch (err) {
+        console.error('❌ حصل خطأ أثناء فحص/الانضمام للاستيج:', err.message || err, err.data ?? '');
+    }
+}
+
 service.on('ready', async () => {
     console.log(`✅ تم تسجيل الدخول: ${service.currentSubscriber.nickname}`);
 
@@ -35,29 +89,9 @@ service.on('ready', async () => {
         console.error('⚠️ فشل ضبط الحالة:', err.message || err);
     }
 
-    try {
-        const audioConfig = await service.stage.getAudioConfig(GROUP_ID);
-        if (!audioConfig.enabled) {
-            console.log('❌ الاستيج غير مفعّل في هذا الجروب.');
-        } else {
-            const slots = await service.stage.slot.list(GROUP_ID);
-            console.log('\n=== السلوتات المتاحة (تشخيص) ===');
-            console.log(slots.map(s => ({ id: s.id, locked: s.locked, occupierId: s.occupierId, reservedOccupierId: s.reservedOccupierId })));
+    await checkStageAndJoin();
 
-            const freeSlot = slots.find(s => !s.occupierId && !s.reservedOccupierId);
-
-            if (!freeSlot) {
-                console.log('❌ مفيش سلوت فاضي حاليًا.');
-            } else {
-                console.log(`⏳ جاري الانضمام للسلوت ${freeSlot.id} ...`);
-                await service.stage.slot.join(GROUP_ID, freeSlot.id);
-                currentSlotId = freeSlot.id;
-                console.log('✅ تم الانضمام للاستيج بصمت (من غير شعار الكتم، لأننا لا نستخدم mute() ولا نبعث أي صوت أصلاً).');
-            }
-        }
-    } catch (err) {
-        console.error('❌ حصل خطأ أثناء الصعود على الاستيج:', err.message || err, err.data ?? '');
-    }
+    checkIntervalHandle = setInterval(checkStageAndJoin, CHECK_INTERVAL_MS);
 
     console.log(`\n⏱️ البوت هيشتغل لمدة ${RUN_DURATION_MS / 1000 / 60} دقيقة ثم يتوقف تلقائيًا.`);
     setTimeout(() => gracefulShutdown('انتهاء مدة التشغيل المحددة'), RUN_DURATION_MS);
@@ -68,6 +102,36 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 service.on('error', (err) => {
     console.error('❌ خطأ في تسجيل الدخول:', err);
+});
+
+// === مراقبة الرسائل الخاصة ===
+// أول مرة، هنطبع شكل الرسالة كاملة عشان نتأكد من أسماء الخصائص الصحيحة
+// (زي isGroup, sourceSubscriberId, body) قبل ما نعتمد عليها.
+service.on('message', async (message) => {
+    try {
+        console.log('\n📩 رسالة جديدة وصلت (تشخيص) — احذف هذا السطر بعد التأكد:');
+        console.log(JSON.stringify(message, null, 2));
+
+        // الشرط المتوقع: رسالة خاصة (مش جروب) ومن العضوية المحددة
+        if (message.isGroup) { return; } // تجاهل رسائل الجروبات
+        if (message.sourceSubscriberId !== WATCHED_SUBSCRIBER_ID) { return; }
+
+        const text = (message.body || '').trim();
+
+        if (text === LEAVE_COMMAND) {
+            console.log(`\n📥 استلمنا أمر النزول من العضوية ${WATCHED_SUBSCRIBER_ID}`);
+
+            if (currentSlotId !== null) {
+                await service.stage.slot.leave(GROUP_ID, currentSlotId);
+                console.log('✅ تم النزول من الاستيج فورًا بناءً على الأمر.');
+                currentSlotId = null;
+            } else {
+                console.log('ℹ️ البوت أصلاً مش واقف على الاستيج.');
+            }
+        }
+    } catch (err) {
+        console.error('❌ خطأ أثناء معالجة الرسالة:', err.message || err);
+    }
 });
 
 service.login(process.env.U_MAIL, process.env.U_PASS);
