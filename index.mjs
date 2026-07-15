@@ -4,8 +4,8 @@ const { WOLF, OnlineState } = wolfjs;
 
 const service = new WOLF();
 
-const GROUP_ID = 18432094; // حط رقم الجروب بتاعك
-const WATCHED_SUBSCRIBER_ID = 51660277 ; // العضوية المسموح لها تصدر الأمر
+const GROUP_ID = 18432094; 
+const WATCHED_SUBSCRIBER_IDS = [51660277, 35543686, 80014666]; 
 const LEAVE_COMMAND = '!كات نزول';
 const JOIN_COMMAND = '!كات صعود';
 
@@ -20,11 +20,11 @@ let checkIntervalHandle = null;
 
 let manualStop = false;
 
-// دالة تجبر المكتبة تجيب بيانات السلوتات من السيرفر من جديد (مش من الكاش)
+
 async function forceRefreshSlots(targetChannelId) {
     try {
         const channel = await service.channel.getById(targetChannelId);
-        channel.slots = null; // نمسح الكاش القديم
+        channel.slots = null;
     } catch (err) {
         console.error('⚠️ فشل تفريغ الكاش:', err.message || err);
     }
@@ -50,7 +50,6 @@ async function gracefulShutdown(reason) {
     process.exit(0);
 }
 
-// الفحص الدوري العادي (بيحترم الحد الأقصى للأشخاص، وبيتوقف تمامًا لو manualStop = true)
 async function checkStageAndJoin() {
     try {
         if (manualStop) {
@@ -97,8 +96,7 @@ async function checkStageAndJoin() {
     }
 }
 
-// صعود إجباري بأمر "!كات صعود" — بيتجاهل حد الأشخاص المسموح (MAX_OCCUPANTS_TO_JOIN)
-// وبيصعد حتى لو فيه 4 أشخاص واقفين، المهم يكون فيه سلوت فاضي
+
 async function forceJoinStage() {
     try {
         if (currentSlotId !== null) {
@@ -158,15 +156,15 @@ service.on('error', (err) => {
 
 service.on('privateMessage', async (message) => {
     try {
-        const senderId = message.authorId || message.sourceSubscriberId;
+        const senderId = Number(message.authorId || message.sourceSubscriberId);
         const text = message.content || message.body || '';
 
-        if (senderId !== WATCHED_SUBSCRIBER_ID) {
+        if (!WATCHED_SUBSCRIBER_IDS.includes(senderId)) {
             return;
         }
 
         if (text.includes(LEAVE_COMMAND)) {
-            console.log(`\n📥 استلمنا أمر النزول من العضوية ${WATCHED_SUBSCRIBER_ID}`);
+            console.log(`\n📥 استلمنا أمر النزول من العضوية ${senderId}`);
 
             manualStop = true; // يبقى متوقف تمامًا لحد أمر الصعود أو إعادة التشغيل
 
@@ -174,13 +172,13 @@ service.on('privateMessage', async (message) => {
                 await forceRefreshSlots(GROUP_ID);
                 await service.stage.slot.leave(GROUP_ID, currentSlotId);
                 currentSlotId = null;
-                console.log('✅ تم النزول من الاستيج، وهيفضل واقف تحت حتى لو الاستيج فضي، لحد أمر "كات صعود" أو إعادة التشغيل.');
+                console.log('✅ "كات صعود" أو إعادة التشغيل.');
             } else {
-                console.log('ℹ️ البوت أصلاً مش واقف على الاستيج، وهيفضل كده لحد أمر "كات صعود".');
+                console.log('ℹ️ "كات صعود".');
             }
 
         } else if (text.includes(JOIN_COMMAND)) {
-            console.log(`\n📥 استلمنا أمر الصعود الإجباري من العضوية ${WATCHED_SUBSCRIBER_ID}`);
+            console.log(`\n📥 استلمنا أمر الصعود الإجباري من العضوية ${senderId}`);
 
             manualStop = false; // نلغي حالة التوقف اليدوي
             await forceJoinStage();
