@@ -133,7 +133,7 @@ service.on('ready', async () => {
     console.log(`✅ تم تسجيل الدخول: ${service.currentSubscriber.nickname}`);
 
     try {
-        await service.setOnlineState(OnlineState.AWAY);
+        await service.setOnlineState(OnlineState.BUSY);
         console.log('✅ تم ضبط الحالة بنجاح إلى: بعيد (Away)');
     } catch (err) {
         console.error('⚠️ فشل ضبط الحالة:', err.message || err);
