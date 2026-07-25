@@ -21,14 +21,12 @@ let checkIntervalHandle = null;
 let manualStop = false;
 
 
-async function forceRefreshSlots(targetChannelId) {
-    try {
-        const channel = await service.channel.getById(targetChannelId);
-        channel.slots = null;
-    } catch (err) {
-        console.error('⚠️ فشل تفريغ الكاش:', err.message || err);
-    }
-}
+// ملحوظة: شلنا فانكشن forceRefreshSlots بالكامل لأنها كانت بتصفّر
+// channel.slots يدويًا (channel.slots = null)، وده كان بيكسر مكتبة wolf.js
+// نفسها لما توصل تحديثات سلوت من السيرفر (GROUP_AUDIO_SLOT_UPDATE) في نفس
+// اللحظة اللي يكون فيها slots = null، وينتج عنه:
+// "TypeError: channel.slots.find is not a function"
+// المكتبة بتدير الكاش بنفسها، فمفيش داعي نتدخل يدويًا فيه.
 
 async function gracefulShutdown(reason) {
     console.log(`\n🛑 جاري إيقاف البوت بسبب: ${reason}`);
@@ -39,7 +37,6 @@ async function gracefulShutdown(reason) {
 
     try {
         if (currentSlotId !== null) {
-            await forceRefreshSlots(GROUP_ID);
             await service.stage.slot.leave(GROUP_ID, currentSlotId);
             console.log('✅ تم مغادرة الاستيج بلطف.');
         }
@@ -68,7 +65,6 @@ async function checkStageAndJoin() {
             return;
         }
 
-        await forceRefreshSlots(GROUP_ID);
         const slots = await service.stage.slot.list(GROUP_ID);
         const occupants = slots.filter(s => !!s.occupierId);
 
@@ -110,7 +106,6 @@ async function forceJoinStage() {
             return;
         }
 
-        await forceRefreshSlots(GROUP_ID);
         const slots = await service.stage.slot.list(GROUP_ID);
         const freeSlot = slots.find(s => !s.occupierId && !s.reservedOccupierId);
 
@@ -169,12 +164,11 @@ service.on('privateMessage', async (message) => {
             manualStop = true; // يبقى متوقف تمامًا لحد أمر الصعود أو إعادة التشغيل
 
             if (currentSlotId !== null) {
-                await forceRefreshSlots(GROUP_ID);
                 await service.stage.slot.leave(GROUP_ID, currentSlotId);
                 currentSlotId = null;
-                console.log('✅ "كات صعود" أو إعادة التشغيل.');
+                console.log('✅ تم النزول من الاستيج.');
             } else {
-                console.log('ℹ️ "كات صعود".');
+                console.log('ℹ️ البوت مش واقف على الاستيج أصلاً.');
             }
 
         } else if (text.includes(JOIN_COMMAND)) {
